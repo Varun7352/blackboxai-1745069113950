@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2 Player Ping Pong Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    @keyframes flicker {
+      0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        opacity: 1;
+      }
+      20%, 22%, 24%, 55% {
+        opacity: 0.4;
+      }
+    }
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: radial-gradient(circle at center, #0f2027, #203a43, #2c5364);
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      overflow: hidden;
+      color: #00ffea;
+      position: relative;
+    }
+    #gameCanvas {
+      background: radial-gradient(circle at center, #1f2937, #111827);
+      border-radius: 20px;
+      box-shadow: 0 0 40px #00ffea;
+      display: block;
+      max-width: 100%;
+      max-height: 80vh;
+      border: 2px solid #00ffea;
+    }
+    .score {
+      color: #00ffea;
+      font-size: 4.5rem;
+      text-shadow: 0 0 10px #00ffea, 0 0 20px #00ffea;
+      user-select: none;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      font-variant-numeric: tabular-nums;
+      animation: flicker 3s infinite;
+    }
+    .player1 {
+      color: #ff3c78;
+      text-shadow: 0 0 10px #ff3c78, 0 0 20px #ff3c78;
+    }
+    .player2 {
+      color: #00ffea;
+      text-shadow: 0 0 10px #00ffea, 0 0 20px #00ffea;
+    }
+    .instructions {
+      color: #00ffea;
+      font-size: 1.25rem;
+      font-weight: 600;
+      text-shadow: 0 0 5px #00ffea;
+      user-select: none;
+      margin-top: 0.5rem;
+      letter-spacing: 0.05em;
+    }
+    .button {
+      background: transparent;
+      border: 2px solid #00ffea;
+      color: #00ffea;
+      font-weight: 700;
+      padding: 0.75rem 2rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #00ffea;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      user-select: none;
+      margin-top: 1.5rem;
+      align-self: center;
+      font-size: 1.5rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .button:hover {
+      background-color: #00ffea;
+      color: #111827;
+      box-shadow: 0 0 30px #00ffea;
+      animation: none;
+    }
+    #startOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 32, 39, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      user-select: none;
+    }
+    #startOverlay h1 {
+      font-size: 4rem;
+      margin-bottom: 1rem;
+      color: #00ffea;
+      text-shadow: 0 0 20px #00ffea;
+      animation: flicker 3s infinite;
+    }
+    #startOverlay p {
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
+      color: #00ffea;
+      text-shadow: 0 0 10px #00ffea;
+      letter-spacing: 0.1em;
+    }
+    #pauseBtn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: transparent;
+      border: 2px solid #00ffea;
+      color: #00ffea;
+      font-weight: 700;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #00ffea;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      user-select: none;
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      z-index: 1100;
+    }
+    #pauseBtn:hover {
+      background-color: #00ffea;
+      color: #111827;
+      box-shadow: 0 0 30px #00ffea;
+      animation: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="startOverlay">
+    <h1>Ping Pong Duel</h1>
+    <p>Player 1: D/S Keys &nbsp;&nbsp;|&nbsp;&nbsp; Player 2: Up/Down Arrow Keys</p>
+    <button class="button" id="playBtn" title="Start Game">Play</button>
+  </div>
+
+  <button id="pauseBtn" style="display:none;">Pause</button>
+
+  <div class="flex flex-col items-center space-y-6" style="display:none;" id="gameContainer">
+    <div class="flex justify-between w-[700px] px-16">
+      <div class="score player1" id="score1">0</div>
+      <div class="score player2" id="score2">0</div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="instructions select-none">
+      Player 1: D/S Keys &nbsp;&nbsp;|&nbsp;&nbsp; Player 2: Up/Down Arrow Keys
+    </div>
+    <button class="button" id="restartBtn" title="Restart Game">Restart Game</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const paddleWidth = 14;
+    const paddleHeight = 100;
+    const ballRadius = 12;
+
+    let paddle1Y = (canvas.height - paddleHeight) / 2;
+    let paddle2Y = (canvas.height - paddleHeight) / 2;
+
+    let ballX = canvas.width / 2;
+    let ballY = canvas.height / 2;
+    let ballSpeedX = 6;
+    let ballSpeedY = 4;
+
+    let score1 = 0;
+    let score2 = 0;
+
+    const score1El = document.getElementById('score1');
+    const score2El = document.getElementById('score2');
+
+    const paddleSpeed = 8;
+
+    const keysPressed = {};
+
+    let isGameRunning = false;
+    let isPaused = false;
+    let ballMoving = false;
+
+    // Keyboard event listeners
+    window.addEventListener('keydown', (e) => {
+      keysPressed[e.key.toLowerCase()] = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keysPressed[e.key.toLowerCase()] = false;
+    });
+
+    function drawRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 15;
+      ctx.fillRect(x, y, w, h);
+      ctx.shadowBlur = 0;
+    }
+
+    function drawCircle(x, y, r, color) {
+      ctx.beginPath();
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 20;
+      ctx.arc(x, y, r, 0, Math.PI * 2, false);
+      ctx.fill();
+      ctx.closePath();
+      ctx.shadowBlur = 0;
+    }
+
+    function drawNet() {
+      const netWidth = 6;
+      const netHeight = 30;
+      const netColor = '#ffffffcc';
+      for (let i = 0; i < canvas.height; i += netHeight * 2) {
+        ctx.fillStyle = netColor;
+        ctx.fillRect(canvas.width / 2 - netWidth / 2, i, netWidth, netHeight);
+      }
+    }
+
+    function resetBall() {
+      ballX = canvas.width / 2;
+      ballY = canvas.height / 2;
+      ballMoving = false;
+      ballSpeedX = 0;
+      ballSpeedY = 0;
+      setTimeout(() => {
+        ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 6;
+        ballSpeedY = (Math.random() > 0.5 ? 1 : -1) * 4;
+        ballMoving = true;
+      }, 2000);
+    }
+
+    function update() {
+      if (!isGameRunning || isPaused) return;
+
+      // Move paddles with swapped controls
+      if (keysPressed['d']) {
+        paddle1Y -= paddleSpeed;
+        if (paddle1Y < 0) paddle1Y = 0;
+      }
+      if (keysPressed['s']) {
+        paddle1Y += paddleSpeed;
+        if (paddle1Y + paddleHeight > canvas.height) paddle1Y = canvas.height - paddleHeight;
+      }
+      if (keysPressed['arrowup']) {
+        paddle2Y -= paddleSpeed;
+        if (paddle2Y < 0) paddle2Y = 0;
+      }
+      if (keysPressed['arrowdown']) {
+        paddle2Y += paddleSpeed;
+        if (paddle2Y + paddleHeight > canvas.height) paddle2Y = canvas.height - paddleHeight;
+      }
+
+      if (!ballMoving) return;
+
+      // Move ball
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
+
+      // Ball collision with top and bottom walls
+      if (ballY + ballRadius > canvas.height || ballY - ballRadius < 0) {
+        ballSpeedY = -ballSpeedY;
+      }
+
+      // Ball collision with paddles
+      // Left paddle
+      if (
+        ballX - ballRadius < paddleWidth &&
+        ballY > paddle1Y &&
+        ballY < paddle1Y + paddleHeight
+      ) {
+        ballSpeedX = -ballSpeedX;
+        // Add some velocity based on where it hit the paddle
+        let deltaY = ballY - (paddle1Y + paddleHeight / 2);
+        ballSpeedY = deltaY * 0.35;
+      }
+      // Right paddle
+      if (
+        ballX + ballRadius > canvas.width - paddleWidth &&
+        ballY > paddle2Y &&
+        ballY < paddle2Y + paddleHeight
+      ) {
+        ballSpeedX = -ballSpeedX;
+        let deltaY = ballY - (paddle2Y + paddleHeight / 2);
+        ballSpeedY = deltaY * 0.35;
+      }
+
+      // Score update
+      if (ballX - ballRadius < 0) {
+        score2++;
+        score2El.textContent = score2;
+        resetBall();
+      }
+      if (ballX + ballRadius > canvas.width) {
+        score1++;
+        score1El.textContent = score1;
+        resetBall();
+      }
+    }
+
+    function draw() {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw net
+      drawNet();
+
+      // Draw paddles with neon colors
+      drawRect(0, paddle1Y, paddleWidth, paddleHeight, '#ff3c78'); // Player 1 paddle - neon pink
+      drawRect(canvas.width - paddleWidth, paddle2Y, paddleWidth, paddleHeight, '#00ffea'); // Player 2 paddle - neon cyan
+
+      // Draw ball
+      drawCircle(ballX, ballY, ballRadius, '#00ffea'); // neon cyan ball
+
+      // Scores are handled by DOM elements
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    const restartBtn = document.getElementById('restartBtn');
+    restartBtn.addEventListener('click', () => {
+      score1 = 0;
+      score2 = 0;
+      score1El.textContent = score1;
+      score2El.textContent = score2;
+      paddle1Y = (canvas.height - paddleHeight) / 2;
+      paddle2Y = (canvas.height - paddleHeight) / 2;
+      resetBall();
+      isGameRunning = true;
+      isPaused = false;
+      document.getElementById('pauseBtn').textContent = 'Pause';
+    });
+
+    const playBtn = document.getElementById('playBtn');
+    const startOverlay = document.getElementById('startOverlay');
+    const gameContainer = document.getElementById('gameContainer');
+    const pauseBtn = document.getElementById('pauseBtn');
+
+    playBtn.addEventListener('click', () => {
+      startOverlay.style.display = 'none';
+      gameContainer.style.display = 'flex';
+      pauseBtn.style.display = 'block';
+      isGameRunning = true;
+      isPaused = false;
+      resetBall();
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (!isGameRunning) return;
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+    });
+
+    gameLoop();
+  </script>
+</body>
+</html>
